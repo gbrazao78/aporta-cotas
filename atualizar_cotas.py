@@ -12,10 +12,23 @@ import csv
 import io
 import json
 import re
+import socket
 import sys
+import time
 import urllib.request
 import zipfile
 from datetime import datetime, timedelta, timezone
+
+# ---------------------------------------------------------------------------
+# Força IPv4: os runners do GitHub Actions não têm rota IPv6, e o servidor
+# da CVM anuncia endereço IPv6 — sem isto, dá "Network is unreachable".
+# ---------------------------------------------------------------------------
+_getaddrinfo_original = socket.getaddrinfo
+
+def _getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    return _getaddrinfo_original(host, port, socket.AF_INET, type, proto, flags)
+
+socket.getaddrinfo = _getaddrinfo_ipv4
 
 URL_BASE = "https://dados.cvm.gov.br/dados/FI/DOC/INF_DIARIO/DADOS/inf_diario_fi_{ano_mes}.zip"
 ARQ_CNPJS = "cnpjs.json"
@@ -43,18 +56,29 @@ def carregar_cnpjs() -> dict:
     return alvos
 
 
-def baixar_zip(ano_mes: str) -> bytes | None:
+def baixar_zip(ano_mes: str, tentativas: int = 4) -> bytes | None:
+    """Baixa o zip do mês. Retorna None se o arquivo não existir (404).
+    Em erros de rede, tenta de novo com espera progressiva (20s, 40s, 60s)."""
     url = URL_BASE.format(ano_mes=ano_mes)
-    print(f"Baixando {url} ...")
-    req = urllib.request.Request(url, headers={"User-Agent": "aporta-cotas/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            return resp.read()
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            print(f"Arquivo de {ano_mes} ainda não disponível (404).")
-            return None
-        raise
+    ultimo_erro = None
+    for i in range(1, tentativas + 1):
+        print(f"Baixando {url} (tentativa {i}/{tentativas}) ...")
+        req = urllib.request.Request(url, headers={"User-Agent": "aporta-cotas/1.1"})
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                print(f"Arquivo de {ano_mes} ainda não disponível (404).")
+                return None
+            ultimo_erro = e
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            ultimo_erro = e
+        if i < tentativas:
+            espera = 20 * i
+            print(f"Falhou ({ultimo_erro}). Aguardando {espera}s antes de tentar de novo...")
+            time.sleep(espera)
+    raise RuntimeError(f"Download de {url} falhou após {tentativas} tentativas: {ultimo_erro}")
 
 
 def extrair_cotas(conteudo_zip: bytes, alvos: dict) -> dict:
