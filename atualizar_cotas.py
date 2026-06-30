@@ -56,9 +56,9 @@ def carregar_cnpjs() -> dict:
     return alvos
 
 
-def baixar_zip(ano_mes: str, tentativas: int = 4) -> bytes | None:
+def baixar_zip(ano_mes: str, tentativas: int = 5) -> bytes | None:
     """Baixa o zip do mês. Retorna None se o arquivo não existir (404).
-    Em erros de rede, tenta de novo com espera progressiva (20s, 40s, 60s)."""
+    Em erros de rede, tenta de novo com espera progressiva (20s, 40s, 60s, 80s)."""
     url = URL_BASE.format(ano_mes=ano_mes)
     ultimo_erro = None
     for i in range(1, tentativas + 1):
@@ -153,24 +153,29 @@ def main():
             cotas = extrair_cotas(f.read(), alvos)
     else:
         hoje = datetime.now(TZ_BR)
-        # 1) mês corrente (com fallback p/ mês anterior se ainda não publicado)
-        dados = baixar_zip(ano_mes_de(hoje))
-        if dados is None:
-            dados = baixar_zip(ano_mes_de(mes_anterior(hoje)))
+        try:
+            # 1) mês corrente (com fallback p/ mês anterior se ainda não publicado)
+            dados = baixar_zip(ano_mes_de(hoje))
             if dados is None:
-                print("ERRO: nenhum arquivo disponível na CVM.")
-                sys.exit(1)
-            cotas = extrair_cotas(dados, alvos)
-        else:
-            cotas = extrair_cotas(dados, alvos)
-            # 2) CNPJs sem registro no mês corrente (ex.: início de mês):
-            #    completar com o mês anterior
-            faltantes = {c: n for c, n in alvos.items() if c not in cotas}
-            if faltantes:
-                print(f"{len(faltantes)} CNPJ(s) sem cota no mês corrente; buscando mês anterior...")
-                dados_ant = baixar_zip(ano_mes_de(mes_anterior(hoje)))
-                if dados_ant:
-                    cotas.update(extrair_cotas(dados_ant, faltantes))
+                dados = baixar_zip(ano_mes_de(mes_anterior(hoje)))
+                if dados is None:
+                    print("AVISO: nenhum arquivo disponível na CVM no momento.")
+                else:
+                    cotas = extrair_cotas(dados, alvos)
+            else:
+                cotas = extrair_cotas(dados, alvos)
+                # 2) CNPJs sem registro no mês corrente (ex.: início de mês):
+                #    completar com o mês anterior
+                faltantes = {c: n for c, n in alvos.items() if c not in cotas}
+                if faltantes:
+                    print(f"{len(faltantes)} CNPJ(s) sem cota no mês corrente; buscando mês anterior...")
+                    dados_ant = baixar_zip(ano_mes_de(mes_anterior(hoje)))
+                    if dados_ant:
+                        cotas.update(extrair_cotas(dados_ant, faltantes))
+        except RuntimeError as e:
+            # CVM fora do ar / conexão expirada: não derruba a execução.
+            # Segue para a rede de segurança e mantém as cotas anteriores.
+            print(f"AVISO: CVM indisponível ({e}). Mantendo as cotas da execução anterior.")
 
     # 3) Última rede de segurança: manter valor da execução anterior
     anteriores = carregar_saida_anterior()
@@ -187,6 +192,11 @@ def main():
             print(f"AVISO: {nome} ({cnpj}) sem cota nova; mantido valor anterior de {anteriores[cnpj].get('data')}.")
         else:
             print(f"AVISO: {nome} ({cnpj}) NÃO encontrado nos informes. Confira o CNPJ.")
+
+    if not fundos:
+        # Sem cota nova E sem valor anterior para nenhum fundo: aí sim é falha real.
+        print("ERRO: sem cotas novas e sem valores anteriores — nada a gravar.")
+        sys.exit(1)
 
     saida = {
         "atualizado_em": datetime.now(TZ_BR).strftime("%Y-%m-%d %H:%M:%S %z"),
