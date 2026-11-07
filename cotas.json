@@ -1,15 +1,15 @@
 {
-  "atualizado_em": "2026-11-06 16:38:10 -0300",
+  "atualizado_em": "2026-11-07 14:49:41 -0300",
   "fundos": {
     "53497497000161": {
       "nome": "Artesanal Multimercado Prev FIM RL",
-      "cota": 1.398356,
-      "data": "2026-11-04"
+      "cota": 1.3989391,
+      "data": "2026-11-05"
     },
     "33146130000196": {
       "nome": "Trigono 70 Prev FICFIM",
-      "cota": 1.7983323,
-      "data": "2026-11-04"
+      "cota": 1.7937374,
+      "data": "2026-11-05"
     },
     "41498482000139": {
       "nome": "Kapitalo K10 Global BTG Prev FICFIM",
@@ -18,28 +18,28 @@
     },
     "33701820000160": {
       "nome": "SulAmerica Prev FICFIRF CrPr",
-      "cota": 18.81998811,
-      "data": "2026-11-03"
+      "cota": 18.85074467,
+      "data": "2026-11-05"
     },
     "52856535000162": {
       "nome": "Kinea Dakar BTG Prev FICFIRF LP RL",
-      "cota": 1.350926644939,
-      "data": "2026-11-04"
+      "cota": 1.352107998765,
+      "data": "2026-11-05"
     },
     "51867306000180": {
       "nome": "MAG PREV CASH FICFIRF ACESS",
-      "cota": 1.48683848,
-      "data": "2026-11-04"
+      "cota": 1.48758803,
+      "data": "2026-11-05"
     },
     "44803273000140": {
       "nome": "Verde Prev FIE FIM Access",
-      "cota": 1.3973242,
-      "data": "2026-11-03"
+      "cota": 1.3970077,
+      "data": "2026-11-05"
     },
     "57166392000180": {
       "nome": "HASHDEX HIGH SHARPE LONG-BIASED",
-      "cota": 1.12224529,
-      "data": "2026-11-04"
+      "cota": 1.1121954,
+      "data": "2026-11-05"
     }
   }
 }
